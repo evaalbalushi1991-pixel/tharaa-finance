@@ -1,87 +1,37 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { FinanceProvider } from './contexts/FinanceContext';
 import { BottomNav } from './components/layout/BottomNav';
-import { Plus, LogOut } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { CATEGORIES } from './types';
 import { formatCurrency } from './utils/formatters';
 import { getCurrentCycle, formatCycleDisplay } from './utils/dateHelpers';
-import type { Category } from './types';
+import type { Category, Transaction } from './types';
 
-// Login Page
-const LoginPage: React.FC = () => {
-  const [isSignUp, setIsSignUp] = useState(false);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const { signIn, signUp } = useAuth();
+// Local Storage Keys
+const STORAGE_KEY = 'tharaa_data';
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      if (isSignUp) {
-        await signUp(email, password);
-      } else {
-        await signIn(email, password);
-      }
-    } catch (error) {
-      alert('خطأ في تسجيل الدخول');
-    }
+// Load data from localStorage
+const loadData = () => {
+  const stored = localStorage.getItem(STORAGE_KEY);
+  if (stored) {
+    return JSON.parse(stored);
+  }
+  return {
+    balance: 0,
+    transactions: [],
   };
+};
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl">
-        <h1 className="text-3xl font-bold text-center mb-8 text-gray-900">
-          💰 ثراء
-        </h1>
-        
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-semibold mb-2">البريد الإلكتروني</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-primary-500 focus:outline-none"
-              required
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-semibold mb-2">كلمة المرور</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-primary-500 focus:outline-none"
-              required
-            />
-          </div>
-          
-          <button
-            type="submit"
-            className="w-full bg-primary-600 text-white py-3 rounded-xl font-bold hover:bg-primary-700 transition-colors"
-          >
-            {isSignUp ? 'إنشاء حساب' : 'تسجيل الدخول'}
-          </button>
-        </form>
-        
-        <button
-          onClick={() => setIsSignUp(!isSignUp)}
-          className="w-full mt-4 text-primary-600 font-semibold"
-        >
-          {isSignUp ? 'لدي حساب بالفعل' : 'إنشاء حساب جديد'}
-        </button>
-      </div>
-    </div>
-  );
+// Save data to localStorage
+const saveData = (data: any) => {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 };
 
 // Dashboard Page
-const DashboardPage: React.FC<{ onAddTransaction: () => void }> = ({ onAddTransaction }) => {
-  const { userProfile } = useAuth();
-  const balance = userProfile?.balance || 0;
+const DashboardPage: React.FC<{ 
+  balance: number;
+  onAddTransaction: () => void;
+}> = ({ balance, onAddTransaction }) => {
   
   return (
     <div className="pb-24 px-4">
@@ -169,11 +119,36 @@ const ObligationsPage: React.FC = () => {
 };
 
 // Transaction Modal
-const TransactionModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
+const TransactionModal: React.FC<{ 
+  isOpen: boolean; 
+  onClose: () => void;
+  onSave: (transaction: Omit<Transaction, 'id'>) => void;
+}> = ({ isOpen, onClose, onSave }) => {
   const [type, setType] = useState<'income' | 'expense'>('expense');
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState<Category>('food');
   const [note, setNote] = useState('');
+
+  const handleSave = () => {
+    if (!amount || parseFloat(amount) <= 0) {
+      alert('الرجاء إدخال مبلغ صحيح');
+      return;
+    }
+
+    onSave({
+      type,
+      amount: parseFloat(amount),
+      category,
+      note,
+      date: new Date().toISOString(),
+      userId: 'local',
+    });
+
+    // Reset form
+    setAmount('');
+    setNote('');
+    onClose();
+  };
 
   if (!isOpen) return null;
 
@@ -243,7 +218,10 @@ const TransactionModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ 
             />
           </div>
 
-          <button className="w-full bg-primary-600 text-white py-3 rounded-xl font-bold">
+          <button 
+            onClick={handleSave}
+            className="w-full bg-primary-600 text-white py-3 rounded-xl font-bold hover:bg-primary-700 transition-colors"
+          >
             حفظ المعاملة
           </button>
         </div>
@@ -254,27 +232,44 @@ const TransactionModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ 
 
 // Main App
 const AppContent: React.FC = () => {
-  const { user, signOut } = useAuth();
   const [showTransactionModal, setShowTransactionModal] = useState(false);
+  const [data, setData] = useState(() => loadData());
 
-  if (!user) {
-    return <LoginPage />;
-  }
+  // Save to localStorage whenever data changes
+  useEffect(() => {
+    saveData(data);
+  }, [data]);
+
+  const handleAddTransaction = (transaction: Omit<Transaction, 'id'>) => {
+    const newTransaction: Transaction = {
+      ...transaction,
+      id: Date.now().toString(),
+    };
+
+    const newBalance = transaction.type === 'income'
+      ? data.balance + transaction.amount
+      : data.balance - transaction.amount;
+
+    setData({
+      balance: newBalance,
+      transactions: [newTransaction, ...data.transactions],
+    });
+  };
 
   return (
     <div className="min-h-screen bg-gray-50" dir="rtl">
       <div className="max-w-7xl mx-auto">
-        {/* Logout Button */}
-        <button
-          onClick={signOut}
-          className="absolute top-4 left-4 p-2 bg-white rounded-lg shadow-lg text-gray-600 hover:text-gray-900 z-50"
-        >
-          <LogOut size={20} />
-        </button>
-
         {/* Routes */}
         <Routes>
-          <Route path="/" element={<DashboardPage onAddTransaction={() => setShowTransactionModal(true)} />} />
+          <Route 
+            path="/" 
+            element={
+              <DashboardPage 
+                balance={data.balance}
+                onAddTransaction={() => setShowTransactionModal(true)} 
+              />
+            } 
+          />
           <Route path="/transactions" element={<TransactionsPage />} />
           <Route path="/analytics" element={<AnalyticsPage />} />
           <Route path="/obligations" element={<ObligationsPage />} />
@@ -296,6 +291,7 @@ const AppContent: React.FC = () => {
         <TransactionModal
           isOpen={showTransactionModal}
           onClose={() => setShowTransactionModal(false)}
+          onSave={handleAddTransaction}
         />
       </div>
     </div>
@@ -304,12 +300,8 @@ const AppContent: React.FC = () => {
 
 function App() {
   return (
-    <BrowserRouter>
-      <AuthProvider>
-        <FinanceProvider>
-          <AppContent />
-        </FinanceProvider>
-      </AuthProvider>
+    <BrowserRouter basename="/tharaa-finance">
+      <AppContent />
     </BrowserRouter>
   );
 }

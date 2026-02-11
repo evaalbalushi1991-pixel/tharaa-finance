@@ -3,11 +3,11 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { FinanceProvider } from './contexts/FinanceContext';
 import { BottomNav } from './components/layout/BottomNav';
-import { Home, FileText, BarChart3, Receipt, Vault, Target, Plus, LogOut } from 'lucide-react';
+import { Plus, LogOut } from 'lucide-react';
 import { CATEGORIES } from './types';
-import { formatCurrency, formatCurrencyWithSymbol } from './utils/formatters';
-import { getCurrentCycle, formatCycleDisplay, formatDate, isInCurrentCycle } from './utils/dateHelpers';
-import type { Transaction, Category } from './types';
+import { formatCurrency } from './utils/formatters';
+import { getCurrentCycle, formatCycleDisplay } from './utils/dateHelpers';
+import type { Category } from './types';
 
 // Login Page
 const LoginPage: React.FC = () => {

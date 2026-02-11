@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import { 
   collection, 
   addDoc, 
@@ -8,13 +8,11 @@ import {
   query, 
   where, 
   getDocs,
-  orderBy,
-  Timestamp 
+  orderBy
 } from 'firebase/firestore';
 import { db } from '../utils/firebase';
 import { useAuth } from './AuthContext';
 import type { Transaction, Obligation, Goal, Asset } from '../types';
-import { isInCurrentCycle } from '../utils/dateHelpers';
 
 interface FinanceContextType {
   transactions: Transaction[];

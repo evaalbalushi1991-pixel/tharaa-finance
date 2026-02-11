@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, FileText, BarChart3, Receipt, Plus } from 'lucide-react';
+import { Home, FileText, BarChart3, Receipt } from 'lucide-react';
 
 export const BottomNav: React.FC = () => {
   const location = useLocation();
